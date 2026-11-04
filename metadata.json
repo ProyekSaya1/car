@@ -1,0 +1,8 @@
+{
+  "name": "CAR SCENE ENGINE V2.0",
+  "description": "Studio pembuatan storyboard dan prompt video otomotif berbasis AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
