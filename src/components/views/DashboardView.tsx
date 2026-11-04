@@ -15,8 +15,9 @@ import {
   FolderPlus,
   Check,
   Edit2,
+  Image as ImageIcon,
 } from 'lucide-react';
-import { ProjectState, StoryboardScene, ViewMode } from '../../types';
+import { AIModelTarget, ProjectState, StoryboardScene, ViewMode } from '../../types';
 import { buildAutomotivePrompt } from '../../utils/promptSynthesizer';
 
 interface DashboardViewProps {
@@ -55,7 +56,7 @@ export function DashboardView({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(project.projectName || 'CAR SCENE WORKSPACE');
 
-  // Inline generic vehicle editor state
+  // Inline quick vehicle editor
   const [isEditingVehicle, setIsEditingVehicle] = useState(false);
   const [vehMake, setVehMake] = useState(activeScene.vehicle.make);
   const [vehModel, setVehModel] = useState(activeScene.vehicle.model);
@@ -86,27 +87,30 @@ export function DashboardView({
   };
 
   const handleSaveVehicle = () => {
-    if (vehMake.trim() && vehModel.trim()) {
-      onUpdateVehicleGeneric(`${vehMake} ${vehModel}`, vehMake.trim(), vehModel.trim());
+    if (vehMake.trim() || vehModel.trim()) {
+      const vName = `${vehMake.trim()} ${vehModel.trim()}`.trim() || 'Kendaraan Kustom';
+      onUpdateVehicleGeneric(vName, vehMake.trim(), vehModel.trim());
       setIsEditingVehicle(false);
-      onShowToast(`Kendaraan diperbarui menjadi: ${vehMake} ${vehModel}`);
+      onShowToast(`Kendaraan diperbarui menjadi: ${vName}`);
     }
   };
+
+  const hasVehicle = Boolean(activeScene.vehicle.make || activeScene.vehicle.model);
+  const hasLocation = Boolean(activeScene.location.environmentType || activeScene.location.name);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Top Banner / Project Overview */}
       <div className="rounded-2xl border border-zinc-800 bg-gradient-to-r from-zinc-900/90 via-zinc-900/50 to-zinc-950 p-6 md:p-8 relative overflow-hidden">
-        {/* Subtle decorative glow */}
         <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
         <div className="absolute right-40 -bottom-20 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-3 text-xs font-mono text-zinc-400">
-              <span className="text-emerald-400 font-semibold uppercase tracking-wider">Produksi Otomotif</span>
+              <span className="text-emerald-400 font-semibold uppercase tracking-wider">Studio Otomotif Universal</span>
               <span>·</span>
-              <span>Studio AI Sinematik</span>
+              <span>Storyboard & Prompt AI</span>
               <span>·</span>
               <span className="text-cyan-400">{project.scenes.length} Sekuens Scene</span>
             </div>
@@ -156,13 +160,12 @@ export function DashboardView({
             )}
 
             <p className="text-sm text-zinc-400 max-w-2xl leading-relaxed">
-              Studio pembuatan storyboard dan prompt video otomotif berbasis AI. Rancang adegan bergerak, rig kamera sinematik, tata cahaya realistis, dan sintesis prompt multi-engine.
+              Studio pembuatan storyboard dan prompt video otomotif berbasis AI. Tentukan referensi kendaraan apa pun, atur sudut kamera, kelola tata cahaya, dan hasilkan prompt akurat untuk platform AI pilihan Anda.
             </p>
           </div>
 
           {/* Quick Primary Actions: New Project, Open Project, & Prompt Synthesizer */}
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            {/* Tombol New Project */}
             <button
               onClick={onOpenNewProjectModal}
               className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2.5 text-xs font-bold text-zinc-950 shadow-lg shadow-emerald-500/20 hover:opacity-95 transition-all active:scale-95 whitespace-nowrap"
@@ -171,7 +174,6 @@ export function DashboardView({
               <span>Proyek Baru (New Project)</span>
             </button>
 
-            {/* Tombol Open Project */}
             <button
               onClick={onOpenOpenProjectModal}
               className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/80 hover:bg-zinc-800 hover:border-zinc-600 px-3.5 py-2.5 text-xs font-semibold text-zinc-200 transition-all active:scale-95 whitespace-nowrap"
@@ -190,7 +192,7 @@ export function DashboardView({
           </div>
         </div>
 
-        {/* Ringkasan Statistik: Jumlah Proyek, Jumlah Storyboard, Jumlah Scene, Durasi */}
+        {/* Ringkasan Statistik Riil (Tanpa Angka Palsu) */}
         <div className="mt-6 pt-6 border-t border-zinc-800/80 grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/60">
             <div className="text-[11px] font-mono text-zinc-400 uppercase flex items-center justify-between">
@@ -201,7 +203,7 @@ export function DashboardView({
               <FolderOpen className="h-4 w-4 text-emerald-400" />
               <span>{totalProjects} Proyek</span>
             </div>
-            <div className="text-[10px] text-zinc-500 mt-0.5">Tersimpan di studio</div>
+            <div className="text-[10px] text-zinc-400 mt-0.5">Tersimpan di studio Anda</div>
           </div>
 
           <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/60">
@@ -213,7 +215,7 @@ export function DashboardView({
               <Film className="h-4 w-4 text-cyan-400" />
               <span>{totalStoryboards} Storyboard</span>
             </div>
-            <div className="text-[10px] text-zinc-500 mt-0.5">Sekuens aktif</div>
+            <div className="text-[10px] text-zinc-400 mt-0.5">Sekuens terkelola</div>
           </div>
 
           <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/60">
@@ -225,32 +227,32 @@ export function DashboardView({
               <Layers className="h-4 w-4 text-sky-400" />
               <span>{project.scenes.length} Scene / Shot</span>
             </div>
-            <div className="text-[10px] text-zinc-500 mt-0.5">Dalam proyek ini</div>
+            <div className="text-[10px] text-zinc-400 mt-0.5">Dalam workspace aktif</div>
           </div>
 
           <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/60">
             <div className="text-[11px] font-mono text-zinc-400 uppercase flex items-center justify-between">
-              <span>Total Estimasi Durasi</span>
+              <span>Estimasi Durasi</span>
               <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
             </div>
             <div className="text-xl font-bold font-mono text-white tabular-nums mt-1 flex items-center gap-2">
               <Clock className="h-4 w-4 text-amber-400" />
               <span>{totalRuntime} Detik</span>
             </div>
-            <div className="text-[10px] text-zinc-500 mt-0.5">Total sekuens video</div>
+            <div className="text-[10px] text-zinc-400 mt-0.5">Total sekuens video</div>
           </div>
         </div>
       </div>
 
-      {/* Main Grid: Scene Aktif + Catatan Sutradara & Kontrol Kendaraan */}
+      {/* Main Grid: Scene Aktif & Catatan Sutradara */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Scene Preview Card */}
+        {/* Left 2 Cols: Scene Hero Player & Prompt Preview */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Film className="h-4 w-4 text-emerald-400" />
               <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                Scene Aktif #{activeScene.sceneNumber}: {activeScene.title}
+                Scene Aktif #{activeScene.sceneNumber}: {activeScene.title || 'Scene Baru'}
               </h3>
             </div>
             <button
@@ -262,7 +264,7 @@ export function DashboardView({
           </div>
 
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 overflow-hidden shadow-xl">
-            {/* Image Preview Container */}
+            {/* Visual Container */}
             <div className="relative aspect-video w-full bg-zinc-950 overflow-hidden group">
               {activeScene.imageUrl ? (
                 <img
@@ -272,9 +274,30 @@ export function DashboardView({
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <div className="h-full w-full flex flex-col items-center justify-center text-zinc-500 bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 text-center">
-                  <Car className="h-12 w-12 text-zinc-700 mb-2" />
-                  <p className="text-xs font-mono">Belum ada keyframe referensi</p>
+                <div className="h-full w-full flex flex-col items-center justify-center text-zinc-400 bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 text-center space-y-3">
+                  <div className="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-emerald-400">
+                    <Car className="h-10 w-10" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-zinc-200">Belum Ada Keyframe / Referensi Visual</h4>
+                    <p className="text-xs text-zinc-400 max-w-sm mt-0.5">
+                      Unggah foto referensi mobil Anda di Vehicle Setup atau tentukan konsep adegan di Storyboard.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={() => onNavigate('vehicle')}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 text-xs font-semibold hover:bg-emerald-500/20 transition-colors"
+                    >
+                      Buka Vehicle Setup
+                    </button>
+                    <button
+                      onClick={() => onNavigate('storyboard')}
+                      className="px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 text-xs font-semibold hover:bg-zinc-700 transition-colors"
+                    >
+                      Buka Storyboard
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -294,32 +317,36 @@ export function DashboardView({
               {/* Bottom detail on image */}
               <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
                 <div>
-                  <h4 className="text-lg font-bold text-white">{activeScene.title}</h4>
+                  <h4 className="text-lg font-bold text-white">{activeScene.title || `Scene 0${activeScene.sceneNumber}`}</h4>
                   <p className="text-xs text-zinc-300 line-clamp-1 max-w-lg mt-0.5">
-                    {activeScene.description}
+                    {activeScene.description || 'Deskripsikan pergerakan atau komposisi visual scene ini...'}
                   </p>
                 </div>
                 <button
                   onClick={() => onNavigate('camera')}
-                  className="rounded-lg bg-zinc-900/80 hover:bg-zinc-800 text-xs text-zinc-200 px-3 py-1.5 border border-zinc-700 backdrop-blur-sm transition-all"
+                  className="rounded-lg bg-zinc-900/80 hover:bg-zinc-800 text-xs text-zinc-200 px-3 py-1.5 border border-zinc-700 backdrop-blur-sm transition-all shrink-0 ml-2"
                 >
                   Atur Kamera
                 </button>
               </div>
             </div>
 
-            {/* Shot Specs Bar with Generic Customizable Vehicle */}
+            {/* Shot Specs Bar */}
             <div className="p-4 bg-zinc-900/90 border-t border-zinc-800 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400">
                   <span className="flex items-center gap-1.5">
                     <Car className="h-3.5 w-3.5 text-cyan-400" />
-                    <strong className="text-zinc-200 font-medium">Kendaraan:</strong> {activeScene.vehicle.make} {activeScene.vehicle.model} ({activeScene.vehicle.category})
+                    <strong className="text-zinc-200 font-medium">Kendaraan:</strong>{' '}
+                    {hasVehicle
+                      ? `${activeScene.vehicle.make} ${activeScene.vehicle.model} (${activeScene.vehicle.category})`
+                      : 'Belum ditentukan'}
                   </span>
                   <span className="text-zinc-600">·</span>
                   <span className="flex items-center gap-1.5">
                     <Compass className="h-3.5 w-3.5 text-emerald-400" />
-                    <strong className="text-zinc-200 font-medium">Lokasi:</strong> {activeScene.location.environmentType}
+                    <strong className="text-zinc-200 font-medium">Lokasi:</strong>{' '}
+                    {hasLocation ? activeScene.location.environmentType : 'Belum ditentukan'}
                   </span>
                 </div>
 
@@ -332,29 +359,29 @@ export function DashboardView({
                   className="text-xs text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-1"
                 >
                   <Edit2 className="h-3 w-3" />
-                  <span>{isEditingVehicle ? 'Tutup Edit Kendaraan' : 'Ubah Nama Kendaraan'}</span>
+                  <span>{isEditingVehicle ? 'Tutup Edit Cepat' : 'Edit Cepat Nama Mobil'}</span>
                 </button>
               </div>
 
-              {/* Inline Vehicle Quick Editor (General customizable vehicle) */}
+              {/* Inline Vehicle Quick Editor */}
               {isEditingVehicle && (
                 <div className="p-3 rounded-xl border border-cyan-500/30 bg-zinc-950 space-y-2 animate-in fade-in">
                   <div className="text-xs font-semibold text-cyan-300">
-                    Kustomisasi Kendaraan Umum (Dapat Diubah Kapan Saja)
+                    Kustomisasi Kendaraan Cepat (Dapat Diubah Kapan Saja)
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <input
                       type="text"
                       value={vehMake}
                       onChange={(e) => setVehMake(e.target.value)}
-                      placeholder="Merek / Tipe (misal: Sedan Sport Turbo, SUV Perkotaan)"
+                      placeholder="Merek (Contoh: Toyota, Honda, Porsche, Wuling...)"
                       className="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-100"
                     />
                     <input
                       type="text"
                       value={vehModel}
                       onChange={(e) => setVehModel(e.target.value)}
-                      placeholder="Model / Edisi (misal: Aero V6, AWD Custom)"
+                      placeholder="Model / Tipe (Contoh: Sedan Klasik, SUV EV, dll.)"
                       className="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-100"
                     />
                   </div>
@@ -369,7 +396,7 @@ export function DashboardView({
                       onClick={handleSaveVehicle}
                       className="px-3 py-1 rounded bg-cyan-500 text-zinc-950 font-bold text-[11px]"
                     >
-                      Terapkan Kendaraan
+                      Terapkan Nama
                     </button>
                   </div>
                 </div>
@@ -380,13 +407,12 @@ export function DashboardView({
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-                    <span className="font-mono text-zinc-400 text-[11px]">Engine AI Target:</span>
-                    {/* Fleksibel: Pengguna bisa memilih engine kapan saja tanpa SORA terkunci */}
+                    <span className="font-mono text-zinc-400 text-[11px]">Format Target AI:</span>
                     <select
                       value={activeScene.modelTarget}
                       onChange={(e) => {
-                        activeScene.modelTarget = e.target.value as any;
-                        onShowToast(`Engine target diubah ke ${e.target.value.toUpperCase()}`);
+                        activeScene.modelTarget = e.target.value as AIModelTarget;
+                        onShowToast(`Format target diubah ke ${e.target.value.toUpperCase()}`);
                       }}
                       className="rounded bg-zinc-900 border border-zinc-700 px-2 py-0.5 text-xs text-cyan-300 font-mono font-bold uppercase cursor-pointer focus:outline-none"
                     >
@@ -451,17 +477,17 @@ export function DashboardView({
                 onChange={(e) => setTempNotes(e.target.value)}
                 rows={5}
                 className="w-full rounded-xl border border-zinc-700 bg-zinc-950 p-3 text-xs text-zinc-200 focus:border-emerald-500 focus:outline-none"
-                placeholder="Tulis arahan visual, pencahayaan, atau pergerakan mobil di sini..."
+                placeholder="Tulis arahan visual, pencahayaan, atau konsep adegan di sini..."
               />
             ) : (
               <p className="text-xs text-zinc-300 leading-relaxed font-sans italic border-l-2 border-emerald-500/50 pl-3 py-1">
-                "{project.directorNotes}"
+                "{project.directorNotes || 'Belum ada catatan sutradara.'}"
               </p>
             )}
 
             <div className="pt-2 border-t border-zinc-800/80 space-y-2">
-              <div className="text-[11px] uppercase font-mono text-zinc-500 font-semibold">
-                Navigasi Cepat Pengaturan
+              <div className="text-[11px] uppercase font-mono text-zinc-400 font-semibold">
+                Navigasi Modul Studio
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -496,28 +522,28 @@ export function DashboardView({
             </div>
           </div>
 
-          {/* Fleksibel AI Engine Selector (Tidak ada pilihan tetap) */}
+          {/* Fleksibel AI Engine Selector */}
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 space-y-3">
             <div className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center justify-between">
-              <span>Pilihan Engine AI Fleksibel</span>
+              <span>Pilihan Format Engine AI</span>
               <span className="font-mono text-[10px] text-cyan-400">Pilih Bebas</span>
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
               {(
                 [
                   { id: 'universal', name: 'Universal' },
+                  { id: 'custom', name: 'Custom' },
                   { id: 'kling', name: 'Kling 1.5' },
                   { id: 'runway', name: 'Runway Gen-3' },
                   { id: 'sora', name: 'OpenAI Sora' },
                   { id: 'veo', name: 'Google Veo' },
-                  { id: 'flux', name: 'Flux Stills' },
                 ] as const
               ).map((engine) => (
                 <button
                   key={engine.id}
                   onClick={() => {
                     activeScene.modelTarget = engine.id;
-                    onShowToast(`Target engine dialihkan ke ${engine.name}`);
+                    onShowToast(`Format dialihkan ke ${engine.name}`);
                   }}
                   className={`px-3 py-2 rounded-lg font-mono text-xs font-medium border text-center transition-all ${
                     activeScene.modelTarget === engine.id
@@ -572,7 +598,7 @@ export function DashboardView({
                     : 'border-zinc-800/80 bg-zinc-950/60 hover:border-zinc-700 hover:bg-zinc-900/40'
                 }`}
               >
-                <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-zinc-900 mb-2.5">
+                <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-zinc-900 mb-2.5 border border-zinc-800">
                   {scene.imageUrl ? (
                     <img
                       src={scene.imageUrl}
@@ -581,8 +607,9 @@ export function DashboardView({
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <div className="h-full w-full flex items-center justify-center text-zinc-600">
-                      <Film className="h-6 w-6" />
+                    <div className="h-full w-full flex flex-col items-center justify-center text-zinc-500 p-2 text-center">
+                      <Film className="h-5 w-5 mb-1 text-zinc-600" />
+                      <span className="text-[10px]">Belum Ada Gambar</span>
                     </div>
                   )}
                   <span className="absolute top-1.5 left-1.5 rounded bg-zinc-950/80 px-1.5 py-0.5 font-mono text-[10px] text-emerald-300 border border-zinc-700">
@@ -593,14 +620,16 @@ export function DashboardView({
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <h5 className="text-xs font-bold text-zinc-200 truncate group-hover:text-emerald-300 transition-colors">
-                      {scene.title}
+                      {scene.title || `Scene 0${scene.sceneNumber}`}
                     </h5>
                     <span className="text-[10px] uppercase font-mono text-cyan-400">
                       {scene.modelTarget}
                     </span>
                   </div>
                   <p className="text-[11px] text-zinc-400 line-clamp-1">
-                    {scene.vehicle.make} {scene.vehicle.model} · {scene.location.timeOfDay}
+                    {scene.vehicle.make || scene.vehicle.model
+                      ? `${scene.vehicle.make} ${scene.vehicle.model}`
+                      : 'Kendaraan Belum Diatur'}
                   </p>
                 </div>
               </div>

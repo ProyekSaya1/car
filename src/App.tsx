@@ -23,8 +23,8 @@ import {
   ViewMode,
 } from './types';
 
-const STORAGE_PROJECTS_KEY = 'car_scene_engine_projects_v2';
-const STORAGE_ACTIVE_ID_KEY = 'car_scene_engine_active_project_id_v2';
+const STORAGE_PROJECTS_KEY = 'car_scene_engine_universal_v2';
+const STORAGE_ACTIVE_ID_KEY = 'car_scene_engine_universal_active_id_v2';
 
 export default function App() {
   const [projects, setProjects] = useState<ProjectState[]>(() => {
@@ -32,8 +32,14 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_PROJECTS_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
+        // Ensure parsed does not contain legacy drift/Nissan demo projects
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          const isLegacy = JSON.stringify(parsed).toLowerCase().includes('nissan') ||
+            JSON.stringify(parsed).toLowerCase().includes('touge') ||
+            JSON.stringify(parsed).toLowerCase().includes('nightfall');
+          if (!isLegacy) {
+            return parsed;
+          }
         }
       }
     } catch (e) {

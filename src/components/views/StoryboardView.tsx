@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Film,
   Plus,
@@ -8,9 +8,14 @@ import {
   ChevronDown,
   Layers,
   Clock,
+  Upload,
+  Image as ImageIcon,
+  X,
+  Check,
 } from 'lucide-react';
-import { StoryboardScene, ViewMode } from '../../types';
+import { AIModelTarget, StoryboardScene, ViewMode } from '../../types';
 import { buildAutomotivePrompt } from '../../utils/promptSynthesizer';
+import { compressImageFile } from '../../utils/imageCompressor';
 
 interface StoryboardViewProps {
   scenes: StoryboardScene[];
@@ -25,13 +30,6 @@ interface StoryboardViewProps {
   onShowToast: (msg: string) => void;
 }
 
-const STOCK_ASSETS = [
-  { name: 'Drift Tikungan Gunung', url: '/src/assets/images/car_night_drift_1793802539970.jpg' },
-  { name: 'Akselerasi Gurun Pasir', url: '/src/assets/images/car_desert_pursuit_1793802540797.jpg' },
-  { name: 'Lorong Kota Hujan Neon', url: '/src/assets/images/car_cyber_rain_1793802541503.jpg' },
-  { name: 'Terowongan Tebing Laut', url: '/src/assets/images/car_coastal_tunnel_1793802541631.jpg' },
-];
-
 export function StoryboardView({
   scenes,
   activeSceneId,
@@ -45,11 +43,31 @@ export function StoryboardView({
   onShowToast,
 }: StoryboardViewProps) {
   const totalRuntime = scenes.reduce((sum, s) => sum + s.durationSeconds, 0);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const handleCopyShotPrompt = (scene: StoryboardScene) => {
     const prompt = buildAutomotivePrompt(scene, scene.modelTarget);
     navigator.clipboard.writeText(prompt);
     onShowToast(`Prompt untuk Scene #${scene.sceneNumber} berhasil disalin!`);
+  };
+
+  const handleUploadKeyframe = async (sceneId: string, file: File | null) => {
+    if (!file) return;
+    try {
+      const compressed = await compressImageFile(file, 1024, 0.75);
+      const target = scenes.find((s) => s.id === sceneId);
+      if (target) {
+        onUpdateScene({ ...target, imageUrl: compressed });
+        onShowToast(`Keyframe gambar untuk Scene #${target.sceneNumber} berhasil diunggah!`);
+      }
+    } catch (e) {
+      onShowToast('Gagal memproses gambar keyframe.');
+    }
+  };
+
+  const handleRemoveKeyframe = (scene: StoryboardScene) => {
+    onUpdateScene({ ...scene, imageUrl: '' });
+    onShowToast(`Keyframe Scene #${scene.sceneNumber} dihapus.`);
   };
 
   return (
@@ -59,13 +77,13 @@ export function StoryboardView({
         <div>
           <div className="flex items-center gap-2 text-xs font-mono text-emerald-400">
             <Film className="h-4 w-4" />
-            <span>MODUL 06 // TIMELINE SEKUENSI STORYBOARD</span>
+            <span>MODUL 06 // TIMELINE SEKUENSI STORYBOARD (UNIVERSAL)</span>
           </div>
           <h2 className="text-xl md:text-2xl font-bold tracking-tight text-white mt-1">
             Timeline Storyboard & Daftar Scene
           </h2>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Atur kontinuitas multi-sudut kamera, ritme durasi, dan transisi pergerakan sinematik.
+            Susun adegan bergerak, kontinuitas multi-sudut pandang kamera, dan durasi visual otomotif sesuai konsep Anda.
           </p>
         </div>
 
@@ -87,6 +105,26 @@ export function StoryboardView({
         </div>
       </div>
 
+      {/* Empty State if no scenes */}
+      {scenes.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/60 p-12 text-center space-y-3">
+          <div className="inline-flex p-4 rounded-2xl bg-zinc-900 text-zinc-500">
+            <Film className="h-8 w-8 text-emerald-400" />
+          </div>
+          <h3 className="text-base font-bold text-white">Belum Ada Adegan Storyboard</h3>
+          <p className="text-xs text-zinc-400 max-w-md mx-auto">
+            Mulai susun alur visual dengan menambahkan adegan baru. Anda bebas menentukan pergerakan mobil, pencahayaan, dan sudut kamera.
+          </p>
+          <button
+            onClick={onAddScene}
+            className="px-5 py-2 rounded-xl text-xs font-bold text-zinc-950 bg-emerald-400 hover:bg-emerald-300 transition-all inline-flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Buat Adegan Pertama</span>
+          </button>
+        </div>
+      )}
+
       {/* Storyboard List */}
       <div className="space-y-4">
         {scenes.map((scene, index) => {
@@ -103,23 +141,45 @@ export function StoryboardView({
               }`}
             >
               <div className="p-4 md:p-5 flex flex-col lg:flex-row items-start gap-5">
-                {/* Visual Thumbnail */}
-                <div className="relative w-full lg:w-64 aspect-video rounded-xl overflow-hidden bg-zinc-900 shrink-0 group">
+                {/* Visual Keyframe Thumbnail */}
+                <div className="relative w-full lg:w-64 aspect-video rounded-xl overflow-hidden bg-zinc-900 shrink-0 group border border-zinc-800">
                   {scene.imageUrl ? (
-                    <img
-                      src={scene.imageUrl}
-                      alt={scene.title}
-                      className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      referrerPolicy="no-referrer"
-                    />
+                    <>
+                      <img
+                        src={scene.imageUrl}
+                        alt={scene.title}
+                        className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <button
+                        onClick={() => handleRemoveKeyframe(scene)}
+                        className="absolute top-2 right-2 p-1 rounded-lg bg-black/60 text-zinc-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Hapus gambar keyframe"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </>
                   ) : (
-                    <div className="h-full w-full flex flex-col items-center justify-center text-zinc-600">
-                      <Film className="h-8 w-8 mb-1" />
-                      <span className="text-[10px] font-mono">Belum ada Keyframe</span>
+                    <div
+                      onClick={() => fileInputRefs.current[scene.id]?.click()}
+                      className="h-full w-full flex flex-col items-center justify-center text-zinc-500 hover:text-zinc-300 hover:bg-zinc-850 cursor-pointer transition-colors p-4 text-center"
+                    >
+                      <ImageIcon className="h-7 w-7 text-zinc-600 mb-1 group-hover:text-emerald-400 transition-colors" />
+                      <span className="text-[11px] font-semibold text-zinc-300">Tambahkan Keyframe</span>
+                      <span className="text-[9px] text-zinc-500">Klik untuk upload foto referensi</span>
                     </div>
                   )}
 
-                  {/* Thumbnail Badge */}
+                  <input
+                    type="file"
+                    ref={(el) => {
+                      fileInputRefs.current[scene.id] = el;
+                    }}
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleUploadKeyframe(scene.id, e.target.files?.[0] || null)}
+                  />
+
+                  {/* Thumbnail Badges */}
                   <span className="absolute top-2 left-2 rounded bg-zinc-950/80 backdrop-blur-md px-2 py-0.5 font-mono text-[11px] font-bold text-emerald-400 border border-zinc-700">
                     SCENE 0{scene.sceneNumber}
                   </span>
@@ -140,6 +200,7 @@ export function StoryboardView({
                         type="text"
                         value={scene.title}
                         onChange={(e) => onUpdateScene({ ...scene, title: e.target.value })}
+                        placeholder="Judul adegan..."
                         className="bg-transparent text-sm md:text-base font-bold text-white border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:outline-none transition-colors px-1"
                       />
                     </div>
@@ -150,15 +211,19 @@ export function StoryboardView({
                       <select
                         value={scene.modelTarget}
                         onChange={(e) =>
-                          onUpdateScene({ ...scene, modelTarget: e.target.value as any })
+                          onUpdateScene({ ...scene, modelTarget: e.target.value as AIModelTarget })
                         }
                         className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs font-mono uppercase text-cyan-300 focus:outline-none"
                       >
+                        <option value="universal">Universal Prompt</option>
+                        <option value="custom">Custom Format</option>
                         <option value="kling">Kling 1.5</option>
                         <option value="runway">Runway Gen-3</option>
-                        <option value="sora">Sora</option>
+                        <option value="sora">OpenAI Sora</option>
                         <option value="luma">Luma Dream</option>
+                        <option value="veo">Google Veo</option>
                         <option value="flux">Flux Stills</option>
+                        <option value="midjourney">Midjourney</option>
                       </select>
                     </div>
                   </div>
@@ -169,7 +234,7 @@ export function StoryboardView({
                     onChange={(e) => onUpdateScene({ ...scene, description: e.target.value })}
                     rows={2}
                     className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 focus:border-emerald-500 focus:outline-none leading-relaxed"
-                    placeholder="Deskripsikan aksi scene, pergerakan kendaraan, dan suasana dramatis..."
+                    placeholder="Deskripsikan pergerakan kendaraan, pencahayaan, atau fokus kamera untuk adegan ini..."
                   />
 
                   {/* Meta Specs Row */}
@@ -177,14 +242,18 @@ export function StoryboardView({
                     <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/60 p-2">
                       <span className="text-[10px] text-zinc-500 uppercase font-mono block">Kendaraan</span>
                       <span className="font-medium text-zinc-200 truncate block mt-0.5">
-                        {scene.vehicle.make} {scene.vehicle.model}
+                        {scene.vehicle.make || scene.vehicle.model
+                          ? `${scene.vehicle.make} ${scene.vehicle.model}`
+                          : 'Belum Ditentukan'}
                       </span>
                     </div>
 
                     <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/60 p-2">
                       <span className="text-[10px] text-zinc-500 uppercase font-mono block">Suasana</span>
                       <span className="font-medium text-zinc-200 truncate block mt-0.5">
-                        {scene.location.timeOfDay} · {scene.location.environmentType}
+                        {scene.location.environmentType || scene.location.name
+                          ? `${scene.location.timeOfDay} · ${scene.location.environmentType || scene.location.name}`
+                          : 'Belum Ditentukan'}
                       </span>
                     </div>
 
@@ -231,10 +300,10 @@ export function StoryboardView({
                       onNavigate('vehicle');
                     }}
                     className="flex-1 lg:flex-none flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-xs text-zinc-200 transition-colors"
-                    title="Konfigurasi detail kendaraan, pengemudi, kamera"
+                    title="Atur detail kendaraan scene ini"
                   >
                     <Layers className="h-3.5 w-3.5 text-cyan-400" />
-                    <span>Setup</span>
+                    <span>Setup Mobil</span>
                   </button>
 
                   <button
@@ -283,29 +352,6 @@ export function StoryboardView({
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   )}
-                </div>
-              </div>
-
-              {/* Keyframe Swap Strip */}
-              <div className="px-4 py-2 bg-zinc-950/80 border-t border-zinc-800/80 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
-                <span className="text-[11px] font-mono text-zinc-500">Pilih Keyframe Referensi:</span>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {STOCK_ASSETS.map((asset) => (
-                    <button
-                      key={asset.url}
-                      onClick={() => {
-                        onUpdateScene({ ...scene, imageUrl: asset.url });
-                        onShowToast(`Keyframe referensi Scene #${scene.sceneNumber} diperbarui`);
-                      }}
-                      className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-                        scene.imageUrl === asset.url
-                          ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                          : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      {asset.name}
-                    </button>
-                  ))}
                 </div>
               </div>
             </div>

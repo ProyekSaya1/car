@@ -3,7 +3,7 @@ import { ProjectState, StoryboardScene, VehicleConfig } from '../types';
 export function createBlankVehicle(id = `v-${Date.now()}`): VehicleConfig {
   return {
     id,
-    name: 'Kendaraan Baru',
+    name: 'Kendaraan Belum Ditentukan',
     make: '',
     model: '',
     year: '',
@@ -12,9 +12,9 @@ export function createBlankVehicle(id = `v-${Date.now()}`): VehicleConfig {
     paintColor: '',
     licensePlate: '',
     steeringPosition: 'Kanan (RHD - Indonesia)',
-    ignitionSystem: 'Tombol Start/Stop',
-    transmission: 'Otomatis (AT)',
-    parkingBrake: 'Electronic Parking Brake (EPB)',
+    ignitionSystem: 'Belum Ditentukan',
+    transmission: 'Belum Ditentukan',
+    parkingBrake: 'Belum Ditentukan',
     engineType: 'Belum Ditentukan',
     driveType: 'Belum Diketahui / Tidak Disebutkan',
     exteriorPhotos: {
@@ -43,14 +43,12 @@ export function createBlankVehicle(id = `v-${Date.now()}`): VehicleConfig {
       trunkArea: '',
       extraPhotos: [],
     },
-    seatMaterial: 'Belum Ditentukan',
-    instrumentClusterType: 'Belum Ditentukan',
     verifiedFeaturesFromReference: [],
     manualKnownFeatures: [],
     unverifiedNotes: '',
     customNotes: '',
     paintFinish: 'Gloss',
-    dynamicState: 'Jalan Santai Perkotaan',
+    dynamicState: 'Kecepatan Sedang Terkendali',
   };
 }
 
@@ -58,16 +56,16 @@ export function createBlankScene(sceneNumber = 1): StoryboardScene {
   return {
     id: `scene-${Date.now()}-${sceneNumber}`,
     sceneNumber,
-    title: `Scene ${sceneNumber}: Konsep Visual`,
+    title: `Scene 0${sceneNumber}`,
     durationSeconds: 4,
-    description: 'Deskripsikan pergerakan atau komposisi visual kendaraan untuk scene ini...',
+    description: '',
     imageUrl: '',
     modelTarget: 'universal',
     vehicle: createBlankVehicle(`v-scene-${sceneNumber}`),
     character: {
       id: `c-${sceneNumber}`,
       name: '',
-      role: 'Pengemudi / Penumpang (Opsional)',
+      role: '',
       gender: 'Tidak Disebutkan',
       attire: '',
       headwear: '',
@@ -77,7 +75,7 @@ export function createBlankScene(sceneNumber = 1): StoryboardScene {
     location: {
       id: `l-${sceneNumber}`,
       name: '',
-      environmentType: 'Jalanan Kota / Terbuka',
+      environmentType: '',
       timeOfDay: 'Siang Hari',
       weather: 'Cerah',
       lightingSources: 'Cahaya Alami',
@@ -85,9 +83,9 @@ export function createBlankScene(sceneNumber = 1): StoryboardScene {
     },
     camera: {
       id: `cam-${sceneNumber}`,
-      rigType: 'Kamera Sinematik',
-      focalLength: '35mm Standar Sinematik',
-      cameraMotion: 'Pelacakan Halus',
+      rigType: 'Kamera Pelacak Sinematik',
+      focalLength: '35mm Sinematik Standar',
+      cameraMotion: 'Pelacakan Halus Sejajar Mobil',
       aspectRatio: '16:9 Standar',
       shutterMotionBlur: 'Alami 1/48s',
       colorGrading: 'Sinematik Netral',
@@ -101,7 +99,7 @@ export function createBlankProject(name = 'CAR SCENE WORKSPACE'): ProjectState {
     id: `proj-${Date.now()}`,
     projectName: name,
     storyboardName: 'Konsep Storyboard Otomotif',
-    directorNotes: 'Atur referensi visual kendaraan, susun adegan storyboard, dan hasilkan prompt AI sesuai konsep yang Anda inginkan.',
+    directorNotes: 'Tentukan visi visual, referensi mobil, dan arahan adegan Anda sendiri.',
     activeSceneId: firstScene.id,
     scenes: [firstScene],
     updatedAt: 'Baru dibuat',
@@ -109,116 +107,12 @@ export function createBlankProject(name = 'CAR SCENE WORKSPACE'): ProjectState {
   };
 }
 
-// Template opsional yang BISA dihapus pengguna kapan saja
-export const OPTIONAL_TEMPLATES: ProjectState[] = [
-  {
-    id: 'template-sedan-harian',
-    projectName: 'Template: Sedan Modern Perkotaan',
-    storyboardName: 'Visual Showcase Sedan Modern',
-    directorNotes: 'Template referensi visual untuk kendaraan sedan harian modern di lingkungan perkotaan.',
-    activeSceneId: 'scene-template-1',
-    isTemplate: true,
-    updatedAt: 'Template Opsional',
-    scenes: [
-      {
-        id: 'scene-template-1',
-        sceneNumber: 1,
-        title: 'Scene 01: Tampilan Eksterior Depan & Samping',
-        durationSeconds: 4,
-        description: 'Tampilan profil kendaraan melaju tenang di jalan perkotaan.',
-        imageUrl: '/src/assets/images/car_coastal_tunnel_1793802541631.jpg',
-        modelTarget: 'universal',
-        vehicle: {
-          id: 'v-template-1',
-          name: 'Sedan Eksekutif Modern',
-          make: 'Sedan Modern',
-          model: 'Seri 5',
-          year: '2024',
-          typeVariant: '2.0 Turbo Luxury',
-          category: 'Sedan',
-          paintColor: 'Abu-Abu Metalik',
-          licensePlate: 'B 1980 RFS',
-          steeringPosition: 'Kanan (RHD - Indonesia)',
-          ignitionSystem: 'Tombol Start/Stop',
-          transmission: 'Otomatis (AT)',
-          parkingBrake: 'Electronic Parking Brake + Auto-Hold',
-          engineType: 'Bensin Turbocharged',
-          driveType: 'Penggerak Roda Belakang (RWD)',
-          exteriorPhotos: {
-            front: '',
-            rear: '',
-            sideRight: '',
-            sideLeft: '',
-            threeQuarter: '',
-            details: '',
-            extraPhotos: [],
-          },
-          interiorPhotos: {
-            dashboard: '',
-            steeringWheel: '',
-            instrumentCluster: '',
-            infotainmentScreen: '',
-            centerConsole: '',
-            gearShifter: '',
-            pedals: '',
-            driverAndPassengerSeats: '',
-            controlButtons: '',
-            secondRowSeats: '',
-            thirdRowSeats: '',
-            rearConsole: '',
-            doorsAndPanels: '',
-            trunkArea: '',
-            extraPhotos: [],
-          },
-          seatMaterial: 'Kulit Sintetis',
-          instrumentClusterType: 'Full Digital TFT Layar Lebar',
-          verifiedFeaturesFromReference: [
-            'Layar Infotainment Floating 12.3 Inci',
-            'Rem Parkir Elektronik dengan Auto-Hold',
-            'Setir Berlapis Kulit dengan Tombol Multifungsi',
-          ],
-          manualKnownFeatures: ['Mesin 2.0L 4-Silinder Turbo', 'Transmisi 8-Percepatan'],
-          unverifiedNotes: 'Detail area bagasi dan kolong mobil belum diverifikasi foto.',
-          paintFinish: 'Gloss',
-          dynamicState: 'Jalan Santai Perkotaan',
-        },
-        character: {
-          id: 'c-template-1',
-          name: 'Pengemudi',
-          role: 'Pengemudi',
-          gender: 'Pria',
-          attire: 'Pakaian Rapi Santai',
-          headwear: 'Tanpa Penutup Kepala',
-          pose: 'Duduk santai mengemudi',
-          expression: 'Fokus tenang',
-        },
-        location: {
-          id: 'l-template-1',
-          name: 'Jalan Raya Perkotaan',
-          environmentType: 'Kawasan Bisnis Perkotaan',
-          timeOfDay: 'Sore Hari',
-          weather: 'Cerah',
-          lightingSources: 'Cahaya Alami Matahari',
-          roadSurface: 'Aspal Mulus',
-        },
-        camera: {
-          id: 'cam-template-1',
-          rigType: 'Tracking Camera Tiga Perempat',
-          focalLength: '35mm',
-          cameraMotion: 'Pelacakan Halus Sejajar Mobil',
-          aspectRatio: '16:9 Standar',
-          shutterMotionBlur: 'Alami 1/48s',
-          colorGrading: 'Sinematik Alami',
-        },
-      },
-    ],
-  },
-];
+// Tidak ada template contoh yang mengunci cerita atau jenis mobil
+export const OPTIONAL_TEMPLATES: ProjectState[] = [];
 
-// Project default yang dimuat pertama kali: bersih, universal, bukan cerita balap
+// Proyek awal murni bersih: universal, halaman kosong, tanpa sampel drift/balap
 export const INITIAL_PROJECTS: ProjectState[] = [
   createBlankProject('CAR SCENE WORKSPACE'),
-  ...OPTIONAL_TEMPLATES,
 ];
 
 export const INITIAL_PROJECT: ProjectState = INITIAL_PROJECTS[0];
