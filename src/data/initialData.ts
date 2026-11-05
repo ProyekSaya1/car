@@ -3,13 +3,14 @@ import { ProjectState, StoryboardScene, VehicleConfig } from '../types';
 export function createBlankVehicle(id = `v-${Date.now()}`): VehicleConfig {
   return {
     id,
-    name: 'Kendaraan Belum Ditentukan',
+    name: '',
     make: '',
     model: '',
     year: '',
     typeVariant: '',
-    category: 'Sedan',
+    category: 'Mobil',
     paintColor: '',
+    condition: '',
     licensePlate: '',
     steeringPosition: 'Kanan (RHD - Indonesia)',
     ignitionSystem: 'Belum Ditentukan',
@@ -47,8 +48,50 @@ export function createBlankVehicle(id = `v-${Date.now()}`): VehicleConfig {
     manualKnownFeatures: [],
     unverifiedNotes: '',
     customNotes: '',
-    paintFinish: 'Gloss',
-    dynamicState: 'Kecepatan Sedang Terkendali',
+    paintFinish: '',
+    dynamicState: '',
+  };
+}
+
+export function createBlankCharacter(sceneNumber = 1, index = 1) {
+  return {
+    id: `c-${sceneNumber}-${index}-${Date.now()}`,
+    name: '',
+    role: index === 1 ? 'Pengemudi' : 'Penumpang Depan',
+    gender: 'Tidak Disebutkan',
+    seatingPosition: index === 1 ? 'Pengemudi' : 'Penumpang Depan',
+    imageUrl: '',
+    physicalDescription: '',
+    facialFeatures: '',
+    attire: '',
+    accessories: '',
+    headwear: '',
+    distinctiveTraits: '',
+    pose: '',
+    poseEnabled: false,
+    expression: '',
+    expressionEnabled: false,
+    dialog: '',
+    dialogEnabled: false,
+  };
+}
+
+export function createBlankDrivingAction() {
+  return {
+    enabled: false,
+    entrySequence: '',
+    engineStatus: '',
+    seatbelt: '',
+    activeGear: '',
+    parkingBrakeState: '',
+    maneuver: '',
+    estimatedSpeed: '',
+    headlights: '',
+    turnSignal: '',
+    wipers: '',
+    cabinClimate: '',
+    audioInfotainment: '',
+    windows: '',
   };
 }
 
@@ -59,37 +102,46 @@ export function createBlankScene(sceneNumber = 1): StoryboardScene {
     title: `Scene 0${sceneNumber}`,
     durationSeconds: 4,
     description: '',
+    characterAction: '',
+    isLocked: false,
     imageUrl: '',
+    promptFormat: 'universal',
+    promptMediaType: 'video',
     modelTarget: 'universal',
     vehicle: createBlankVehicle(`v-scene-${sceneNumber}`),
-    character: {
-      id: `c-${sceneNumber}`,
-      name: '',
-      role: '',
-      gender: 'Tidak Disebutkan',
-      attire: '',
-      headwear: '',
-      pose: '',
-      expression: '',
+    characters: [], // Starts empty per specifications
+    drivingAction: createBlankDrivingAction(),
+    activePanels: {
+      vehicleDetail: false,
+      character: false,
+      cameraPro: false,
+      locationDetail: false,
+      vehicleAction: false,
+      custom: false,
     },
     location: {
       id: `l-${sceneNumber}`,
+      enabled: false, // Default switch OFF
       name: '',
       environmentType: '',
+      isIndoor: false,
+      atmosphere: '',
       timeOfDay: 'Siang Hari',
       weather: 'Cerah',
-      lightingSources: 'Cahaya Alami',
-      roadSurface: 'Aspal Mulus',
+      lightingSources: '',
+      roadSurface: '',
     },
     camera: {
       id: `cam-${sceneNumber}`,
-      rigType: 'Kamera Pelacak Sinematik',
-      focalLength: '35mm Sinematik Standar',
-      cameraMotion: 'Pelacakan Halus Sejajar Mobil',
-      aspectRatio: '16:9 Standar',
-      shutterMotionBlur: 'Alami 1/48s',
-      colorGrading: 'Sinematik Netral',
+      angle: 'Sejajar Mata (Eye Level)',
+      motion: 'Diam (Static)',
+      lensType: 'Standar',
+      colorTone: 'Natural',
+      cameraAngle: 'Eye Level',
+      cameraShot: 'Medium Shot',
+      cameraMotion: 'Static',
     },
+    customInstruction: '',
   };
 }
 
@@ -97,9 +149,15 @@ export function createBlankProject(name = 'CAR SCENE WORKSPACE'): ProjectState {
   const firstScene = createBlankScene(1);
   return {
     id: `proj-${Date.now()}`,
+    schemaVersion: 2,
     projectName: name,
     storyboardName: 'Konsep Storyboard Otomotif',
-    directorNotes: 'Tentukan visi visual, referensi mobil, dan arahan adegan Anda sendiri.',
+    directorNotes: '',
+    targetDurationSeconds: 15,
+    aspectRatio: '16:9',
+    durationOption: 'auto',
+    mediaMode: 'video',
+    promptLanguage: 'id',
     activeSceneId: firstScene.id,
     scenes: [firstScene],
     updatedAt: 'Baru dibuat',
@@ -107,12 +165,12 @@ export function createBlankProject(name = 'CAR SCENE WORKSPACE'): ProjectState {
   };
 }
 
-// Tidak ada template contoh yang mengunci cerita atau jenis mobil
 export const OPTIONAL_TEMPLATES: ProjectState[] = [];
 
-// Proyek awal murni bersih: universal, halaman kosong, tanpa sampel drift/balap
 export const INITIAL_PROJECTS: ProjectState[] = [
   createBlankProject('CAR SCENE WORKSPACE'),
 ];
 
 export const INITIAL_PROJECT: ProjectState = INITIAL_PROJECTS[0];
+
+

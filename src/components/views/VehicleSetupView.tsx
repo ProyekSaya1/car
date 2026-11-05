@@ -38,29 +38,38 @@ import {
   TransmissionType,
   VehicleCategory,
   VehicleConfig,
+  ViewMode,
+  LicensePlateFormat,
 } from '../../types';
 import { compressImageFile } from '../../utils/imageCompressor';
+import { saveImage } from '../../utils/imageStore';
+import { AsyncImage } from '../ui/AsyncImage';
+import { ModuleHeader } from '../layout/ModuleHeader';
 
 interface VehicleSetupViewProps {
   activeScene: StoryboardScene;
   onUpdateVehicle: (updated: VehicleConfig) => void;
   onApplyToAllScenes: (vehicle: VehicleConfig) => void;
   onShowToast: (msg: string) => void;
+  onNavigate?: (view: ViewMode) => void;
 }
 
 const CATEGORIES: VehicleCategory[] = [
-  'Mobil Klasik',
-  'Mobil Jadul',
-  'Mobil Modern',
-  'Mobil Terbaru',
-  'Sedan',
+  'Mobil',
+  'Sepeda Motor',
+  'Truk',
+  'Bus',
+  'Kendaraan Klasik',
+  'Kendaraan Sport',
+  'Mobil Listrik (EV)',
   'SUV',
+  'Sedan',
   'MPV',
-  'Hatchback',
-  'Pickup',
-  'Van',
-  'Kendaraan Listrik',
+  'Pickup & Van',
+  'Mobil Modern',
+  'Mobil Jadul',
   'Kendaraan Komersial',
+  'Kendaraan Lainnya',
   'Kategori Lainnya',
 ];
 
@@ -135,6 +144,7 @@ export function VehicleSetupView({
   onUpdateVehicle,
   onApplyToAllScenes,
   onShowToast,
+  onNavigate,
 }: VehicleSetupViewProps) {
   // Working local state
   const [formData, setFormData] = useState<VehicleConfig>(() => ({
@@ -223,24 +233,26 @@ export function VehicleSetupView({
 
     try {
       const compressedDataUrl = await compressImageFile(file, 1024, 0.78);
+      const idbRef = await saveImage(compressedDataUrl);
+
       if (section === 'exterior') {
         setFormData((prev) => ({
           ...prev,
           exteriorPhotos: {
             ...prev.exteriorPhotos,
-            [key]: compressedDataUrl,
+            [key]: idbRef,
           },
         }));
-        onShowToast(`Foto eksterior (${key}) berhasil diunggah!`);
+        onShowToast(`Foto eksterior (${key}) berhasil disimpan ke IndexedDB!`);
       } else {
         setFormData((prev) => ({
           ...prev,
           interiorPhotos: {
             ...prev.interiorPhotos,
-            [key]: compressedDataUrl,
+            [key]: idbRef,
           },
         }));
-        onShowToast(`Foto interior (${key}) berhasil diunggah!`);
+        onShowToast(`Foto interior (${key}) berhasil disimpan ke IndexedDB!`);
       }
       setHasUnsavedChanges(true);
     } catch (err) {
@@ -278,10 +290,12 @@ export function VehicleSetupView({
 
     try {
       const compressedDataUrl = await compressImageFile(file, 1024, 0.78);
+      const idbRef = await saveImage(compressedDataUrl);
+
       const newItem: ReferencePhotoItem = {
         id: `ref-${Date.now()}`,
         label: newRefLabel.trim(),
-        url: compressedDataUrl,
+        url: idbRef,
         uploadedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
       };
 
@@ -557,7 +571,18 @@ export function VehicleSetupView({
   });
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      {/* Top Module Navigation Bar */}
+      <ModuleHeader
+        moduleNumber="MODUL 02"
+        moduleTitle="Vehicle Setup"
+        moduleDescription="Konfigurasi identitas kendaraan, foto referensi eksterior & interior, posisi setir, dan transmisi"
+        currentView="vehicle"
+        onNavigate={onNavigate}
+        prevView={{ view: 'dashboard', label: 'Dashboard' }}
+        nextView={{ view: 'character', label: 'Character Setup' }}
+      />
+
       {/* Top Banner & Control Bar */}
       <div className="rounded-2xl border border-zinc-800 bg-gradient-to-r from-zinc-900 via-zinc-900/90 to-zinc-950 p-6 md:p-8 relative overflow-hidden shadow-xl">
         <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
@@ -627,6 +652,19 @@ export function VehicleSetupView({
                 <span>Edit Kendaraan</span>
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() => {
+                onApplyToAllScenes(formData);
+                onShowToast('Identitas kendaraan berhasil diterapkan ke semua scene untuk konsistensi!');
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all active:scale-95"
+              title="Gunakan kendaraan ini di seluruh storyboard agar konsisten"
+            >
+              <Layers className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Terapkan ke Semua Scene</span>
+            </button>
 
             <button
               type="button"
@@ -801,25 +839,74 @@ export function VehicleSetupView({
             />
           </div>
 
-          {/* Nomor Polisi Buatan Pengguna */}
-          <div className="space-y-1.5">
+          {/* Nomor Polisi & Format Plat (Tahap 7) */}
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-medium text-zinc-300">
-                Nomor Polisi (Plat Kustom)
+                Format & Nomor Polisi Kendaraan
               </label>
-              <span className="text-[10px] text-zinc-400">Opsional</span>
+              <span className="text-[10px] text-zinc-400">Pilihan Standar</span>
             </div>
-            <div className="relative">
-              <input
-                type="text"
-                disabled={!isEditing}
-                value={formData.licensePlate}
-                onChange={(e) => updateField('licensePlate', e.target.value.toUpperCase())}
-                placeholder="Misal: B 1234 ABC atau plat kustom"
-                className="w-full uppercase font-mono tracking-wider rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 text-xs text-emerald-300 focus:border-emerald-500 focus:outline-none disabled:opacity-60"
-              />
-              <FileBadge className="absolute right-3 top-2.5 h-4 w-4 text-zinc-400 pointer-events-none" />
+
+            {/* Format Selector Pills */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+              {[
+                { id: 'indonesia_pribadi', label: 'Indonesia Pribadi (Hitam/Putih)' },
+                { id: 'indonesia_ev', label: 'Indonesia EV (Strip Biru)' },
+                { id: 'luar_negeri', label: 'Luar Negeri / Inter' },
+                { id: 'tanpa_pelat', label: 'Tanpa Pelat (Display)' },
+                { id: 'kustom', label: 'Kustom Bebas' },
+              ].map((fmt) => (
+                <button
+                  key={fmt.id}
+                  type="button"
+                  disabled={!isEditing}
+                  onClick={() => updateField('licensePlateFormat', fmt.id as LicensePlateFormat)}
+                  className={`p-2 rounded-lg border text-left text-[11px] transition-all ${
+                    (formData.licensePlateFormat || 'indonesia_pribadi') === fmt.id
+                      ? 'border-emerald-500 bg-emerald-500/15 text-white font-semibold'
+                      : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  {fmt.label}
+                </button>
+              ))}
             </div>
+
+            {formData.licensePlateFormat !== 'tanpa_pelat' && (
+              <div className="relative">
+                <input
+                  type="text"
+                  disabled={!isEditing}
+                  value={formData.licensePlate}
+                  onChange={(e) => updateField('licensePlate', e.target.value.toUpperCase())}
+                  placeholder={
+                    formData.licensePlateFormat === 'indonesia_ev'
+                      ? 'Misal: B 1234 EV atau B 8888 EL (EV Strip Biru)'
+                      : formData.licensePlateFormat === 'luar_negeri'
+                      ? 'Misal: CALIF 7XYZ999 atau TOKYO 300'
+                      : 'Misal: B 1234 ABC atau D 5678 XYZ'
+                  }
+                  className="w-full uppercase font-mono tracking-wider rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 text-xs text-emerald-300 focus:border-emerald-500 focus:outline-none disabled:opacity-60"
+                />
+                <FileBadge className="absolute right-3 top-2.5 h-4 w-4 text-zinc-400 pointer-events-none" />
+              </div>
+            )}
+          </div>
+
+          {/* Kondisi Kendaraan */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-zinc-300">
+              Kondisi Kendaraan
+            </label>
+            <input
+              type="text"
+              disabled={!isEditing}
+              value={formData.condition || ''}
+              onChange={(e) => updateField('condition', e.target.value)}
+              placeholder="Misal: Kondisi Baru / Showroom, Sangat Terawat, Klasik Orisinal, Modifikasi, Berdebu..."
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none disabled:opacity-60"
+            />
           </div>
         </div>
       </div>
@@ -870,7 +957,7 @@ export function VehicleSetupView({
 
                   {hasPhoto ? (
                     <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-zinc-800 bg-zinc-900 mb-2">
-                      <img
+                      <AsyncImage
                         src={photoUrl as string}
                         alt={slot.label}
                         className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -955,7 +1042,7 @@ export function VehicleSetupView({
                   className="rounded-xl border border-zinc-800 bg-zinc-950 p-2 space-y-1.5 relative group"
                 >
                   <div className="aspect-video w-full rounded-lg overflow-hidden bg-zinc-900 relative">
-                    <img src={item.url} alt={item.label} className="h-full w-full object-cover" />
+                    <AsyncImage src={item.url} alt={item.label} className="h-full w-full object-cover" />
                     <button
                       type="button"
                       onClick={() =>
@@ -1056,7 +1143,7 @@ export function VehicleSetupView({
 
                     {hasPhoto ? (
                       <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-zinc-900 border border-zinc-800 group">
-                        <img src={photoUrl} alt={slot.label} className="h-full w-full object-cover" />
+                        <AsyncImage src={photoUrl} alt={slot.label} className="h-full w-full object-cover" />
                         <button
                           type="button"
                           onClick={() =>
@@ -1171,7 +1258,7 @@ export function VehicleSetupView({
 
                     {hasPhoto ? (
                       <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-zinc-900 border border-zinc-800 group">
-                        <img src={photoUrl} alt={slot.label} className="h-full w-full object-cover" />
+                        <AsyncImage src={photoUrl} alt={slot.label} className="h-full w-full object-cover" />
                         <button
                           type="button"
                           onClick={() =>
@@ -1251,7 +1338,7 @@ export function VehicleSetupView({
                   className="rounded-xl border border-zinc-800 bg-zinc-950 p-2 space-y-1.5 relative group"
                 >
                   <div className="aspect-video w-full rounded-lg overflow-hidden bg-zinc-900 relative">
-                    <img src={item.url} alt={item.label} className="h-full w-full object-cover" />
+                    <AsyncImage src={item.url} alt={item.label} className="h-full w-full object-cover" />
                     <button
                       type="button"
                       onClick={() =>
@@ -1851,7 +1938,7 @@ export function VehicleSetupView({
             </div>
 
             <div className="aspect-video w-full rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800 flex items-center justify-center">
-              <img
+              <AsyncImage
                 src={previewModalImage.url}
                 alt={previewModalImage.title}
                 className="max-h-[65vh] w-auto object-contain"
@@ -1947,7 +2034,7 @@ export function VehicleSetupView({
                       className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-2.5 space-y-2 group"
                     >
                       <div className="aspect-video w-full rounded-lg overflow-hidden bg-zinc-950 relative border border-zinc-800/80">
-                        <img
+                        <AsyncImage
                           src={item.url}
                           alt={item.label}
                           className="h-full w-full object-cover group-hover:scale-105 transition-transform"

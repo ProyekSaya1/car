@@ -16,9 +16,12 @@ import {
   Check,
   Edit2,
   Image as ImageIcon,
+  UserCheck,
+  AlertTriangle,
 } from 'lucide-react';
-import { AIModelTarget, ProjectState, StoryboardScene, ViewMode } from '../../types';
+import { AIModelTarget, ProjectState, StoryboardScene, ViewMode, CharacterConfig } from '../../types';
 import { buildAutomotivePrompt } from '../../utils/promptSynthesizer';
+import { AsyncImage } from '../ui/AsyncImage';
 
 interface DashboardViewProps {
   project: ProjectState;
@@ -27,6 +30,7 @@ interface DashboardViewProps {
   onNavigate: (view: ViewMode) => void;
   onSelectScene: (sceneId: string) => void;
   onAddScene: () => void;
+  onUpdateScene?: (scene: StoryboardScene) => void;
   onUpdateNotes: (notes: string) => void;
   onUpdateProjectName: (name: string) => void;
   onOpenNewProjectModal: () => void;
@@ -42,6 +46,7 @@ export function DashboardView({
   onNavigate,
   onSelectScene,
   onAddScene,
+  onUpdateScene,
   onUpdateNotes,
   onUpdateProjectName,
   onOpenNewProjectModal,
@@ -52,7 +57,7 @@ export function DashboardView({
   const activeScene = project.scenes.find((s) => s.id === project.activeSceneId) || project.scenes[0];
   const [copied, setCopied] = useState(false);
   const [notesEditing, setNotesEditing] = useState(false);
-  const [tempNotes, setTempNotes] = useState(project.directorNotes);
+  const [tempNotes, setTempNotes] = useState(project.directorNotes || '');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(project.projectName || 'CAR SCENE WORKSPACE');
 
@@ -267,11 +272,10 @@ export function DashboardView({
             {/* Visual Container */}
             <div className="relative aspect-video w-full bg-zinc-950 overflow-hidden group">
               {activeScene.imageUrl ? (
-                <img
+                <AsyncImage
                   src={activeScene.imageUrl}
                   alt={activeScene.title}
                   className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  referrerPolicy="no-referrer"
                 />
               ) : (
                 <div className="h-full w-full flex flex-col items-center justify-center text-zinc-400 bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 text-center space-y-3">
@@ -348,6 +352,14 @@ export function DashboardView({
                     <strong className="text-zinc-200 font-medium">Lokasi:</strong>{' '}
                     {hasLocation ? activeScene.location.environmentType : 'Belum ditentukan'}
                   </span>
+                  <span className="text-zinc-600">·</span>
+                  <span className="flex items-center gap-1.5">
+                    <UserCheck className="h-3.5 w-3.5 text-cyan-400" />
+                    <strong className="text-zinc-200 font-medium">Karakter ({Array.isArray(activeScene.characters) ? activeScene.characters.length : (activeScene.character ? 1 : 0)}):</strong>{' '}
+                    {Array.isArray(activeScene.characters) && activeScene.characters.length > 0
+                      ? activeScene.characters.map((c) => c.name || c.role).filter(Boolean).join(', ') || 'Belum diatur'
+                      : activeScene.character?.name || 'Belum diatur'}
+                  </span>
                 </div>
 
                 <button
@@ -407,24 +419,20 @@ export function DashboardView({
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-                    <span className="font-mono text-zinc-400 text-[11px]">Format Target AI:</span>
+                    <span className="font-mono text-zinc-400 text-[11px]">Format Prompt:</span>
                     <select
-                      value={activeScene.modelTarget}
+                      value={activeScene.modelTarget || 'universal'}
                       onChange={(e) => {
-                        activeScene.modelTarget = e.target.value as AIModelTarget;
-                        onShowToast(`Format target diubah ke ${e.target.value.toUpperCase()}`);
+                        const newTarget = e.target.value as 'universal' | 'custom';
+                        if (onUpdateScene) {
+                          onUpdateScene({ ...activeScene, modelTarget: newTarget, promptFormat: newTarget });
+                        }
+                        onShowToast(`Format diubah ke ${newTarget === 'universal' ? 'Universal Prompt' : 'Custom Prompt'}`);
                       }}
-                      className="rounded bg-zinc-900 border border-zinc-700 px-2 py-0.5 text-xs text-cyan-300 font-mono font-bold uppercase cursor-pointer focus:outline-none"
+                      className="rounded bg-zinc-900 border border-zinc-700 px-2.5 py-1 text-xs text-emerald-300 font-mono font-bold uppercase cursor-pointer focus:outline-none"
                     >
                       <option value="universal">Universal Prompt</option>
-                      <option value="custom">Custom Format</option>
-                      <option value="kling">Kling 1.5</option>
-                      <option value="runway">Runway Gen-3</option>
-                      <option value="sora">OpenAI Sora</option>
-                      <option value="luma">Luma Dream</option>
-                      <option value="veo">Google Veo</option>
-                      <option value="flux">Flux Stills</option>
-                      <option value="midjourney">Midjourney</option>
+                      <option value="custom">Custom Prompt</option>
                     </select>
                   </div>
 
@@ -522,38 +530,54 @@ export function DashboardView({
             </div>
           </div>
 
-          {/* Fleksibel AI Engine Selector */}
+          {/* Format Prompt Universal & Custom */}
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 space-y-3">
             <div className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center justify-between">
-              <span>Pilihan Format Engine AI</span>
-              <span className="font-mono text-[10px] text-cyan-400">Pilih Bebas</span>
+              <span>Format Output Prompt</span>
+              <span className="font-mono text-[10px] text-emerald-400">Universal & Custom</span>
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
-              {(
-                [
-                  { id: 'universal', name: 'Universal' },
-                  { id: 'custom', name: 'Custom' },
-                  { id: 'kling', name: 'Kling 1.5' },
-                  { id: 'runway', name: 'Runway Gen-3' },
-                  { id: 'sora', name: 'OpenAI Sora' },
-                  { id: 'veo', name: 'Google Veo' },
-                ] as const
-              ).map((engine) => (
-                <button
-                  key={engine.id}
-                  onClick={() => {
-                    activeScene.modelTarget = engine.id;
-                    onShowToast(`Format dialihkan ke ${engine.name}`);
-                  }}
-                  className={`px-3 py-2 rounded-lg font-mono text-xs font-medium border text-center transition-all ${
-                    activeScene.modelTarget === engine.id
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-sm'
-                      : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
-                  }`}
-                >
-                  {engine.name}
-                </button>
-              ))}
+              <button
+                onClick={() => {
+                  if (onUpdateScene) {
+                    onUpdateScene({ ...activeScene, modelTarget: 'universal', promptFormat: 'universal' });
+                  }
+                  onShowToast('Format dialihkan ke Universal Prompt');
+                }}
+                className={`px-3 py-2.5 rounded-xl font-medium border text-center transition-all ${
+                  (activeScene.modelTarget || 'universal') === 'universal'
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-sm font-bold'
+                    : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                }`}
+              >
+                Universal Prompt
+              </button>
+              <button
+                onClick={() => {
+                  if (onUpdateScene) {
+                    onUpdateScene({ ...activeScene, modelTarget: 'custom', promptFormat: 'custom' });
+                  }
+                  onShowToast('Format dialihkan ke Custom Prompt');
+                }}
+                className={`px-3 py-2.5 rounded-xl font-medium border text-center transition-all ${
+                  activeScene.modelTarget === 'custom'
+                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-sm font-bold'
+                    : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                }`}
+              >
+                Custom Prompt
+              </button>
+            </div>
+
+            <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between">
+              <span className="text-[11px] text-zinc-400">Prompt Gambar & Video</span>
+              <button
+                onClick={() => onNavigate('prompts')}
+                className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1"
+              >
+                <span>Buka Generator Prompt</span>
+                <span>→</span>
+              </button>
             </div>
           </div>
         </div>
@@ -600,11 +624,10 @@ export function DashboardView({
               >
                 <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-zinc-900 mb-2.5 border border-zinc-800">
                   {scene.imageUrl ? (
-                    <img
+                    <AsyncImage
                       src={scene.imageUrl}
                       alt={scene.title}
                       className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                      referrerPolicy="no-referrer"
                     />
                   ) : (
                     <div className="h-full w-full flex flex-col items-center justify-center text-zinc-500 p-2 text-center">

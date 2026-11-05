@@ -5,46 +5,30 @@ import { ProjectState, VehicleCategory } from '../../types';
 interface NewProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (name: string, notes: string, initialVehicleCategory: VehicleCategory) => void;
+  onCreate: (name: string) => void;
 }
-
-const CATEGORY_OPTIONS: { id: VehicleCategory; label: string }[] = [
-  { id: 'Sedan', label: 'Sedan' },
-  { id: 'SUV', label: 'SUV' },
-  { id: 'Mobil Modern', label: 'Mobil Modern' },
-  { id: 'Mobil Klasik', label: 'Mobil Klasik' },
-  { id: 'Kendaraan Listrik', label: 'Kendaraan Listrik (EV)' },
-  { id: 'Kendaraan Komersial', label: 'Kendaraan Komersial' },
-];
 
 export function NewProjectModal({ isOpen, onClose, onCreate }: NewProjectModalProps) {
   const [name, setName] = useState('');
-  const [notes, setNotes] = useState('');
-  const [category, setCategory] = useState<VehicleCategory>('Sedan');
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onCreate(
-      name.trim(),
-      notes.trim() || 'Konsep visual dan catatan produksi otomotif untuk proyek baru.',
-      category
-    );
+    onCreate(name.trim());
     setName('');
-    setNotes('');
     onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-      <div className="relative w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl space-y-5">
+      <div className="relative w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl space-y-4">
         <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
           <div className="flex items-center gap-2">
             <Plus className="h-4 w-4 text-emerald-400" />
             <h3 className="text-base font-bold text-white uppercase tracking-wider">
-              Buat Proyek Baru (New Project)
+              Proyek Baru
             </h3>
           </div>
           <button
@@ -58,54 +42,20 @@ export function NewProjectModal({ isOpen, onClose, onCreate }: NewProjectModalPr
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-zinc-400 mb-1.5">
-              Nama Proyek (Project Title) <span className="text-emerald-400">*</span>
+              Nama Proyek <span className="text-emerald-400">*</span>
             </label>
             <input
               type="text"
               required
+              autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Contoh: SHOWCASE OTOMOTIF PERKOTAAN"
+              placeholder="Contoh: Iklan SUV Perkotaan"
               className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 py-2.5 text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none"
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1.5">
-              Kategori Kendaraan Awal (Bisa Diubah Kapan Saja)
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {CATEGORY_OPTIONS.map((item) => (
-                <button
-                  type="button"
-                  key={item.id}
-                  onClick={() => setCategory(item.id)}
-                  className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all ${
-                    category === item.id
-                      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300 font-semibold'
-                      : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1.5">
-              Catatan Visi & Konsep Sutradara (Opsional)
-            </label>
-            <textarea
-              rows={3}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Contoh: Fokus pada keanggunan siluet kendaraan, detail kabin, pencahayaan alami sore hari..."
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-900 p-3 text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none leading-relaxed"
-            />
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-800/80">
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800/80">
             <button
               type="button"
               onClick={onClose}
@@ -118,6 +68,83 @@ export function NewProjectModal({ isOpen, onClose, onCreate }: NewProjectModalPr
               className="px-5 py-2 rounded-xl text-xs font-bold text-zinc-950 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:opacity-95 shadow-md shadow-emerald-500/20 transition-all active:scale-95"
             >
               Buat Proyek
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+interface RenameProjectModalProps {
+  isOpen: boolean;
+  currentName: string;
+  onClose: () => void;
+  onRename: (newName: string) => void;
+}
+
+export function RenameProjectModal({
+  isOpen,
+  currentName,
+  onClose,
+  onRename,
+}: RenameProjectModalProps) {
+  const [name, setName] = useState(currentName);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onRename(name.trim());
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+      <div className="relative w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-bold text-white uppercase tracking-wider">
+              Ganti Nama Proyek
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+              Nama Baru Proyek <span className="text-emerald-400">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 py-2.5 text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800/80">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white transition-colors"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded-xl text-xs font-bold text-zinc-950 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:opacity-95 shadow-md shadow-emerald-500/20 transition-all active:scale-95"
+            >
+              Simpan Nama
             </button>
           </div>
         </form>

@@ -1,109 +1,375 @@
-import { AIModelTarget, StoryboardScene } from '../types';
+import {
+  PromptFormat,
+  PromptMediaType,
+  PromptLanguage,
+  PromptLang,
+  StoryboardScene,
+  CharacterConfig,
+  ProjectState,
+} from '../types';
 
 /**
- * Membentuk deskripsi kendaraan yang akurat dan jujur terhadap referensi foto,
- * mencantumkan posisi setir (RHD/LHD), transmisi, plat nomor kustom,
- * serta fitur terverifikasi tanpa halusinasi.
+ * Membentuk 1 paragraf prompt utuh (Bahasa Indonesia atau English)
+ * - Tanpa tanda kurung siku []
+ * - Tanpa nilai default palsu
+ * - Hanya menyertakan data yang memang diisi / switch aktif
  */
-function getVehicleDescription(scene: StoryboardScene, lang: 'en' | 'id' = 'en'): string {
-  const { vehicle } = scene;
-  const isRHD = vehicle.steeringPosition?.includes('Kanan') || vehicle.steeringPosition?.includes('RHD');
-  const steeringText = lang === 'en'
-    ? (isRHD ? 'right-hand drive (RHD) cockpit' : 'left-hand drive (LHD) cockpit')
-    : (isRHD ? 'setir kanan (RHD Indonesia)' : 'setir kiri (LHD)');
-
-  const makeModel = [vehicle.year, vehicle.make, vehicle.model, vehicle.typeVariant].filter(Boolean).join(' ') || 'Automotive vehicle';
-  const colorPart = vehicle.paintColor ? (lang === 'en' ? `in ${vehicle.paintColor}` : `warna ${vehicle.paintColor}`) : '';
-  const platePart = vehicle.licensePlate ? (lang === 'en' ? `with license plate "${vehicle.licensePlate}"` : `dengan plat nomor "${vehicle.licensePlate}"`) : '';
-  const transPart = vehicle.transmission && vehicle.transmission !== 'Belum Ditentukan'
-    ? (lang === 'en' ? `${vehicle.transmission} transmission` : `transmisi ${vehicle.transmission}`)
-    : '';
-
-  const verified = (vehicle.verifiedFeaturesFromReference || []).slice(0, 4);
-  const verifiedStr = verified.length > 0
-    ? (lang === 'en' ? `features: ${verified.join(', ')}` : `fitur terverifikasi: ${verified.join(', ')}`)
-    : '';
-
-  const parts = [
-    `${makeModel} (${vehicle.category || 'Automotive'})`,
-    colorPart,
-    steeringText,
-    transPart,
-    platePart,
-    verifiedStr,
-  ].filter(Boolean);
-
-  return parts.join(', ');
-}
-
-export function buildAutomotivePrompt(
+export function buildUnifiedPrompt(
   scene: StoryboardScene,
-  targetModel: AIModelTarget = 'universal',
-  lang: 'en' | 'id' = 'en'
+  project?: ProjectState,
+  lang: PromptLang = 'id'
 ): string {
-  const { vehicle, character, location, camera } = scene;
-  const vehDesc = getVehicleDescription(scene, lang);
+  const isVideo = project ? project.mediaMode === 'video' : scene.promptMediaType !== 'image';
+  const ratio = project?.aspectRatio || '16:9';
+  const durationOpt = project?.durationOption || 'auto';
+  const sentences: string[] = [];
+
+  // ==========================================
+  // 1. KENDARAAN (VEHICLE)
+  // ==========================================
+  const { vehicle } = scene;
+  const hasExtPhotos = Boolean(
+    vehicle.exteriorPhotos?.front ||
+      vehicle.exteriorPhotos?.rear ||
+      vehicle.exteriorPhotos?.sideRight ||
+      vehicle.exteriorPhotos?.sideLeft ||
+      vehicle.exteriorPhotos?.threeQuarter ||
+      vehicle.exteriorPhotos?.details ||
+      (vehicle.exteriorPhotos?.extraPhotos && vehicle.exteriorPhotos.extraPhotos.length > 0)
+  );
+  const hasIntPhotos = Boolean(
+    vehicle.interiorPhotos?.dashboard ||
+      vehicle.interiorPhotos?.steeringWheel ||
+      vehicle.interiorPhotos?.instrumentCluster ||
+      vehicle.interiorPhotos?.centerConsole ||
+      (vehicle.interiorPhotos?.extraPhotos && vehicle.interiorPhotos.extraPhotos.length > 0)
+  );
+  const hasAnyVehiclePhotos = hasExtPhotos || hasIntPhotos;
+
+  const vehicleName =
+    vehicle.name?.trim() ||
+    [vehicle.year, vehicle.make, vehicle.model, vehicle.typeVariant].filter(Boolean).join(' ').trim();
+
+  const isRHD =
+    vehicle.steeringPosition?.includes('Kanan') || vehicle.steeringPosition?.includes('RHD');
 
   if (lang === 'id') {
-    const charDesc = character.name ? `Pengemudi ${character.name} (${character.role || 'pengemudi'}) dengan setelan ${character.attire || 'rapi'}, ekspresi ${character.expression || 'tenang'}.` : '';
-    const locDesc = `Lokasi ${location.environmentType} pada waktu ${location.timeOfDay}, cuaca ${location.weather}, permukaan jalan ${location.roadSurface}.`;
-    const camDesc = `Kamera menggunakan rig ${camera.rigType}, lensa ${camera.focalLength}, gerakan ${camera.cameraMotion}, rasio aspek ${camera.aspectRatio}.`;
-    const customNotes = scene.customPromptEnhancer ? ` ${scene.customPromptEnhancer}` : '';
+    const vehParts: string[] = [];
+    if (vehicleName) {
+      vehParts.push(vehicleName);
+    } else if (hasAnyVehiclePhotos) {
+      vehParts.push('Kendaraan');
+    }
 
-    return `Adegan sinematik otomotif: ${vehDesc}. ${charDesc} ${locDesc} ${camDesc}. Pencahayaan alami dan pantulan bodi kendaraan akurat.${customNotes}`;
+    if (vehParts.length > 0) {
+      if (hasAnyVehiclePhotos) {
+        vehParts.push('sesuai foto referensi');
+      }
+      if (vehicle.paintColor?.trim()) {
+        vehParts.push(`warna ${vehicle.paintColor.trim()}`);
+      }
+      if (vehicle.condition?.trim()) {
+        vehParts.push(`kondisi ${vehicle.condition.trim()}`);
+      }
+      if (vehicle.licensePlate?.trim()) {
+        vehParts.push(`pelat nomor "${vehicle.licensePlate.trim()}"`);
+      }
+      if (vehicle.steeringPosition) {
+        vehParts.push(isRHD ? 'posisi setir kanan' : 'posisi setir kiri');
+      }
+      if (vehicle.transmission && vehicle.transmission !== 'Belum Ditentukan') {
+        vehParts.push(`transmisi ${vehicle.transmission}`);
+      }
+      sentences.push(`Fokus utama ${vehParts.join(', ')}.`);
+    }
+  } else {
+    // English
+    const vehParts: string[] = [];
+    if (vehicleName) {
+      vehParts.push(vehicleName);
+    } else if (hasAnyVehiclePhotos) {
+      vehParts.push('Automotive vehicle');
+    }
+
+    if (vehParts.length > 0) {
+      if (hasAnyVehiclePhotos) {
+        vehParts.push('strictly matching reference photograph');
+      }
+      if (vehicle.paintColor?.trim()) {
+        vehParts.push(`finished in ${vehicle.paintColor.trim()}`);
+      }
+      if (vehicle.condition?.trim()) {
+        vehParts.push(`in ${vehicle.condition.trim()} condition`);
+      }
+      if (vehicle.licensePlate?.trim()) {
+        vehParts.push(`bearing license plate "${vehicle.licensePlate.trim()}"`);
+      }
+      if (vehicle.steeringPosition) {
+        vehParts.push(isRHD ? 'right-hand drive configuration' : 'left-hand drive configuration');
+      }
+      if (vehicle.transmission && vehicle.transmission !== 'Belum Ditentukan') {
+        vehParts.push(`${vehicle.transmission} transmission`);
+      }
+      sentences.push(`Hero subject: ${vehParts.join(', ')}.`);
+    }
   }
 
-  // English generation optimized per model
-  const customNotes = scene.customPromptEnhancer ? ` ${scene.customPromptEnhancer}` : '';
-  const charDesc = character.name
-    ? `Driver: ${character.name} (${character.role}), attire: ${character.attire || 'casual'}, expression: ${character.expression || 'focused'}.`
-    : '';
-  const locDesc = `Environment: ${location.environmentType}, time: ${location.timeOfDay}, weather: ${location.weather}, surface: ${location.roadSurface}.`;
-  const camDesc = `Camera rig: ${camera.rigType}, focal length: ${camera.focalLength}, motion: ${camera.cameraMotion}, grading: ${camera.colorGrading}.`;
+  // ==========================================
+  // 2. KARAKTER & POSISI DUDUK (MAX 3)
+  // ==========================================
+  const characters: CharacterConfig[] = (
+    Array.isArray(scene.characters) && scene.characters.length > 0
+      ? scene.characters
+      : scene.character
+      ? [scene.character]
+      : []
+  ).slice(0, 3);
 
-  switch (targetModel) {
-    case 'universal':
-      return `Cinematic automotive sequence featuring ${vehDesc}. ${charDesc} ${locDesc} ${camDesc}. Accurate specular automotive reflections, genuine cabin controls layout, clean depth of field, 4k master cinematography.${customNotes}`;
+  const activeCharacters = characters.filter(
+    (c) =>
+      c.imageUrl ||
+      c.name?.trim() ||
+      c.seatingPosition ||
+      (c.poseEnabled && c.pose?.trim()) ||
+      (c.expressionEnabled && c.expression?.trim()) ||
+      (c.dialogEnabled && c.dialog?.trim()) ||
+      c.attire?.trim()
+  );
 
-    case 'custom':
-      return `[Vehicle]: ${vehDesc} | [Location]: ${location.environmentType}, ${location.timeOfDay} | [Optics]: ${camera.focalLength}, ${camera.cameraMotion} | [Lighting]: ${location.lightingSources}.${customNotes}`;
+  activeCharacters.forEach((c, index) => {
+    const num = index + 1;
+    if (lang === 'id') {
+      const parts: string[] = [];
+      const charName = c.name?.trim() ? `Karakter ${num} (${c.name.trim()})` : `Karakter ${num}`;
+      parts.push(charName);
 
-    case 'kling':
-      return `Masterpiece 8k cinematic automotive film, ${vehDesc}. Smooth vehicle movement along ${location.environmentType}. ${charDesc} Shot on ${camera.focalLength} anamorphic lens, ${camera.cameraMotion}. Realistic road surface texture, dynamic tire interaction, crisp motion blur, photorealistic car commercial visual.${customNotes}`;
+      if (c.imageUrl) {
+        parts.push(`sesuai persis foto referensi ${num}`);
+      }
+      if (c.seatingPosition) {
+        parts.push(`duduk di ${c.seatingPosition}`);
+      }
+      if (c.poseEnabled && c.pose?.trim()) {
+        parts.push(`pose ${c.pose.trim()}`);
+      }
+      if (c.expressionEnabled && c.expression?.trim()) {
+        parts.push(`ekspresi ${c.expression.trim()}`);
+      }
+      if (c.attire?.trim()) {
+        parts.push(`mengenakan ${c.attire.trim()}`);
+      }
 
-    case 'runway':
-      return `[Camera Tracking]: ${camera.cameraMotion}, ${camera.rigType}. [Subject]: ${vehDesc}. [Environment]: ${location.environmentType}, ${location.timeOfDay}, ${location.weather}. [Lighting]: ${location.lightingSources}, photorealistic automotive broadcast commercial, consistent vehicular geometry.${customNotes}`;
+      sentences.push(`${parts.join(', ')}.`);
 
-    case 'sora':
-      return `Cinematic automotive sequence of ${vehDesc}. ${charDesc} ${locDesc} Shot with ${camera.rigType} executing ${camera.cameraMotion}. True-to-life reflections on automotive paint finish, accurate cabin perspective, highly stable tracking camera, 8k film resolution.${customNotes}`;
+      if (c.dialogEnabled && c.dialog?.trim()) {
+        sentences.push(`${charName} berkata: "${c.dialog.trim()}".`);
+      }
+    } else {
+      // English
+      const parts: string[] = [];
+      const charName = c.name?.trim() ? `Character ${num} (${c.name.trim()})` : `Character ${num}`;
+      parts.push(charName);
 
-    case 'luma':
-      return `Photorealistic cinematic action shot of ${vehDesc} moving through ${location.environmentType}. Smooth ${camera.cameraMotion} on ${camera.rigType}. Natural daylight and reflections, authentic cockpit ergonomics, 24fps film grain.${customNotes}`;
+      if (c.imageUrl) {
+        parts.push(`strictly matching reference photo ${num}`);
+      }
+      if (c.seatingPosition) {
+        parts.push(`seated at ${c.seatingPosition}`);
+      }
+      if (c.poseEnabled && c.pose?.trim()) {
+        parts.push(`pose: ${c.pose.trim()}`);
+      }
+      if (c.expressionEnabled && c.expression?.trim()) {
+        parts.push(`facial expression: ${c.expression.trim()}`);
+      }
+      if (c.attire?.trim()) {
+        parts.push(`wearing ${c.attire.trim()}`);
+      }
 
-    case 'veo':
-      return `Google Veo cinematic automotive shot: ${vehDesc}. Moving through ${location.environmentType} during ${location.timeOfDay}. Smooth cinematic camera tracking, authentic automotive materials, accurate vehicle interior ergonomics.${customNotes}`;
+      sentences.push(`${parts.join(', ')}.`);
 
-    case 'flux':
-      return `Editorial automotive still photograph, ${vehDesc} positioned at ${location.environmentType}. Natural daylight, ${location.weather}. Captured on 35mm film camera with ${camera.focalLength} lens, ${camera.colorGrading} grading, razor sharp details, commercial automotive lookbook.${customNotes}`;
+      if (c.dialogEnabled && c.dialog?.trim()) {
+        sentences.push(`${charName} says: "${c.dialog.trim()}".`);
+      }
+    }
+  });
 
-    case 'midjourney':
-      return `Editorial automotive photography of ${vehDesc}, ${location.environmentType}, ${location.timeOfDay}, cinematic lighting, shot on 35mm lens, f/2.8, color graded, ultra-detailed --ar ${camera.aspectRatio?.replace(':', '/') || '16/9'} --v 6.1 --style raw`;
+  // ==========================================
+  // 3. AKSI KENDARAAN (HANYA JIKA DIAKTIFKAN)
+  // ==========================================
+  const act = scene.drivingAction;
+  if (act && act.enabled) {
+    const actionParts: string[] = [];
+    if (act.entrySequence?.trim()) actionParts.push(act.entrySequence.trim());
+    if (act.engineStatus?.trim()) actionParts.push(act.engineStatus.trim());
+    if (act.maneuver?.trim()) actionParts.push(act.maneuver.trim());
+    if (act.estimatedSpeed?.trim()) actionParts.push(act.estimatedSpeed.trim());
+    if (act.activeGear?.trim()) actionParts.push(`gigi ${act.activeGear.trim()}`);
+    if (act.headlights && act.headlights !== 'Mati') actionParts.push(`lampu ${act.headlights}`);
 
-    default:
-      return `Cinematic automotive capture of ${vehDesc}. ${locDesc} ${camDesc}.${customNotes}`;
+    if (actionParts.length > 0) {
+      if (lang === 'id') {
+        sentences.push(`Dinamika berkendara: ${actionParts.join(', ')}.`);
+      } else {
+        sentences.push(`Vehicle dynamics: ${actionParts.join(', ')}.`);
+      }
+    }
   }
+
+  // ==========================================
+  // 4. LOKASI & CUACA (HANYA JIKA SAKLAR AKTIF)
+  // ==========================================
+  const loc = scene.location;
+  if (loc && loc.enabled) {
+    if (lang === 'id') {
+      const locParts: string[] = [];
+      const place = loc.name?.trim() || loc.environmentType?.trim() || '';
+      if (loc.isIndoor) {
+        locParts.push('Area dalam ruangan');
+        if (place) locParts.push(`di ${place}`);
+        if (loc.atmosphere?.trim()) locParts.push(`suasana ${loc.atmosphere.trim()}`);
+        if (loc.lightingSources?.trim()) locParts.push(`pencahayaan ${loc.lightingSources.trim()}`);
+      } else {
+        if (place) locParts.push(`Lokasi di ${place}`);
+        if (loc.timeOfDay?.trim()) locParts.push(`waktu ${loc.timeOfDay.trim()}`);
+        if (loc.weather?.trim()) locParts.push(`cuaca ${loc.weather.trim()}`);
+        if (loc.roadSurface?.trim()) locParts.push(`permukaan jalan ${loc.roadSurface.trim()}`);
+        if (loc.atmosphere?.trim()) locParts.push(`suasana ${loc.atmosphere.trim()}`);
+      }
+      if (locParts.length > 0) {
+        sentences.push(`${locParts.join(', ')}.`);
+      }
+    } else {
+      // English
+      const locParts: string[] = [];
+      const place = loc.name?.trim() || loc.environmentType?.trim() || '';
+      if (loc.isIndoor) {
+        locParts.push('Indoor setting');
+        if (place) locParts.push(`at ${place}`);
+        if (loc.atmosphere?.trim()) locParts.push(`atmosphere: ${loc.atmosphere.trim()}`);
+        if (loc.lightingSources?.trim()) locParts.push(`lighting: ${loc.lightingSources.trim()}`);
+      } else {
+        if (place) locParts.push(`Location at ${place}`);
+        if (loc.timeOfDay?.trim()) locParts.push(`time: ${loc.timeOfDay.trim()}`);
+        if (loc.weather?.trim()) locParts.push(`weather: ${loc.weather.trim()}`);
+        if (loc.roadSurface?.trim()) locParts.push(`road surface: ${loc.roadSurface.trim()}`);
+        if (loc.atmosphere?.trim()) locParts.push(`atmosphere: ${loc.atmosphere.trim()}`);
+      }
+      if (locParts.length > 0) {
+        sentences.push(`${locParts.join(', ')}.`);
+      }
+    }
+  }
+
+  // ==========================================
+  // 5. KAMERA & SINEMATOGRAFI
+  // ==========================================
+  const cam = scene.camera;
+  if (cam) {
+    const camAngle = cam.angle || cam.cameraAngle || '';
+    const camMotion = cam.motion || cam.cameraMotion || '';
+    const lens = cam.lensType || '';
+    const color = cam.colorTone || '';
+
+    if (lang === 'id') {
+      const camParts: string[] = [];
+      if (camAngle) camParts.push(`sudut kamera ${camAngle}`);
+      if (camMotion) camParts.push(`pergerakan ${camMotion}`);
+      if (lens) camParts.push(`lensa ${lens}`);
+      if (color) camParts.push(`tone warna ${color}`);
+      if (camParts.length > 0) {
+        sentences.push(`Sinematografi: ${camParts.join(', ')}.`);
+      }
+    } else {
+      const camParts: string[] = [];
+      if (camAngle) camParts.push(`camera angle ${camAngle}`);
+      if (camMotion) camParts.push(`camera movement: ${camMotion}`);
+      if (lens) camParts.push(`${lens} lens`);
+      if (color) camParts.push(`${color} color tone`);
+      if (camParts.length > 0) {
+        sentences.push(`Cinematography: ${camParts.join(', ')}.`);
+      }
+    }
+  }
+
+  // ==========================================
+  // 6. NARASI ADEGAN (REFINER / CERITAKAN ADEGAN)
+  // ==========================================
+  if (scene.description?.trim()) {
+    sentences.push(scene.description.trim());
+  }
+
+  // ==========================================
+  // 7. RASIO ASPEK & DURASI
+  // ==========================================
+  if (lang === 'id') {
+    sentences.push(`Rasio aspek ${ratio}.`);
+    if (isVideo && durationOpt !== 'auto') {
+      const durSeconds =
+        typeof durationOpt === 'number'
+          ? durationOpt
+          : project?.customDurationSeconds || scene.durationSeconds || 4;
+      sentences.push(`Durasi adegan ${durSeconds} detik.`);
+    }
+  } else {
+    sentences.push(`Aspect ratio ${ratio}.`);
+    if (isVideo && durationOpt !== 'auto') {
+      const durSeconds =
+        typeof durationOpt === 'number'
+          ? durationOpt
+          : project?.customDurationSeconds || scene.durationSeconds || 4;
+      sentences.push(`Sequence duration ${durSeconds} seconds.`);
+    }
+  }
+
+  // ==========================================
+  // 8. INSTRUKSI TAMBAHAN (CUSTOM PANEL)
+  // ==========================================
+  if (scene.customInstruction?.trim()) {
+    sentences.push(scene.customInstruction.trim());
+  }
+
+  // Gabungkan menjadi 1 paragraf mengalir yang rapi
+  return sentences.join(' ').replace(/\s{2,}/g, ' ').trim();
 }
 
-export function buildAutomotiveImagePrompt(scene: StoryboardScene, lang: 'en' | 'id' = 'en'): string {
-  return buildAutomotivePrompt(scene, 'flux', lang);
+/**
+ * Backward compatibility functions
+ */
+export function buildAutomotivePrompt(
+  scene: StoryboardScene,
+  format: PromptFormat = 'universal',
+  mediaType: PromptMediaType = 'video',
+  lang: PromptLanguage = 'en'
+): string {
+  // Map to unified prompt builder
+  const mockProject: ProjectState = {
+    id: 'mock',
+    projectName: 'Temp',
+    aspectRatio: (scene.camera?.aspectRatio as any) || '16:9',
+    durationOption: scene.durationSeconds || 'auto',
+    mediaMode: mediaType,
+    promptLanguage: lang,
+    activeSceneId: scene.id,
+    scenes: [scene],
+  };
+
+  return buildUnifiedPrompt(scene, mockProject, lang);
+}
+
+export function buildAutomotiveImagePrompt(
+  scene: StoryboardScene,
+  lang: PromptLanguage = 'en'
+): string {
+  return buildAutomotivePrompt(scene, 'universal', 'image', lang);
 }
 
 export function buildAutomotiveVideoPrompt(
   scene: StoryboardScene,
-  targetModel: AIModelTarget = 'universal',
-  lang: 'en' | 'id' = 'en'
+  format: PromptFormat = 'universal',
+  lang: PromptLanguage = 'en'
 ): string {
-  return buildAutomotivePrompt(scene, targetModel, lang);
+  return buildAutomotivePrompt(scene, format, 'video', lang);
 }
 
 export function buildStructuredJsonPrompt(scene: StoryboardScene): string {
@@ -112,51 +378,34 @@ export function buildStructuredJsonPrompt(scene: StoryboardScene): string {
       sceneNumber: scene.sceneNumber,
       title: scene.title,
       durationSeconds: scene.durationSeconds,
-      vehicle: {
-        category: scene.vehicle.category,
-        make: scene.vehicle.make,
-        model: scene.vehicle.model,
-        year: scene.vehicle.year,
-        typeVariant: scene.vehicle.typeVariant,
-        color: scene.vehicle.paintColor,
-        licensePlate: scene.vehicle.licensePlate,
-        steeringPosition: scene.vehicle.steeringPosition,
-        ignitionSystem: scene.vehicle.ignitionSystem,
-        transmission: scene.vehicle.transmission,
-        parkingBrake: scene.vehicle.parkingBrake,
-        engineType: scene.vehicle.engineType,
-        driveType: scene.vehicle.driveType,
-        verifiedFeatures: scene.vehicle.verifiedFeaturesFromReference || [],
-        manualSpecs: scene.vehicle.manualKnownFeatures || [],
-        unverifiedNotes: scene.vehicle.unverifiedNotes || '',
-      },
-      character: scene.character,
+      vehicle: scene.vehicle,
+      characters: scene.characters,
       location: scene.location,
       camera: scene.camera,
-      generatedPromptEn: buildAutomotivePrompt(scene, scene.modelTarget, 'en'),
-      generatedPromptId: buildAutomotivePrompt(scene, scene.modelTarget, 'id'),
-      negativePrompt: getNegativePrompt(scene.modelTarget, 'en'),
+      prompts: {
+        indonesia: buildUnifiedPrompt(scene, undefined, 'id'),
+        english: buildUnifiedPrompt(scene, undefined, 'en'),
+      },
     },
     null,
     2
   );
 }
 
-export function getNegativePrompt(targetModel: AIModelTarget = 'universal', lang: 'en' | 'id' = 'en'): string {
+export function getNegativePrompt(
+  mediaType: PromptMediaType = 'video',
+  lang: PromptLanguage = 'en'
+): string {
   if (lang === 'id') {
-    return 'animasi murah, kartun, mobil mainan plastik, pelek roda melengkung tidak wajar, fisika mustahil, mobil melayang, setir di posisi terbalik yang salah, interior terdistorsi, wajah cacat, glitch';
+    if (mediaType === 'video') {
+      return 'animasi murahan, kartun, mobil mainan plastik, bodi mobil melengkung, roda meleleh, setir di sisi yang salah, kabin terdistorsi, wajah karakter berganti rupa, mata guling ganjil, fisika melayang, glitch, getaran berlebihan, logo kabur, teks acak';
+    }
+    return 'kartun, 3d render murahan, bodi mobil tidak wajar, proporsi kendaraan salah, roda tidak bulat, pelek meleleh, setir terbalik, wajah karakter tidak konsisten, anatomi tangan rusak, buram, noise berlebihan, teks acak, watermark';
   }
 
-  const baseNegative =
-    'cgi, cartoon, plastic toy car, distorted vehicle body proportions, wrong steering wheel side (incorrect RHD/LHD placement), unnatural wheel rotation, deformed rims, floating car, messy cockpit controls, distorted car badge, blurry, oversaturated, unrealistic smoke';
-
-  switch (targetModel) {
-    case 'kling':
-    case 'runway':
-      return `${baseNegative}, glitch, jitter, temporal tearing, unnatural rubber tire stretching`;
-    case 'sora':
-      return `${baseNegative}, unnatural camera speed, artificial plastic reflections, morphing chassis`;
-    default:
-      return baseNegative;
+  if (mediaType === 'video') {
+    return 'cartoon, low-budget cgi, plastic toy vehicle, deformed automotive chassis, morphing car body, wrong steering wheel side, rubber tire stretching, melting rims, unnatural floating physics, distorted cabin dashboard, character face changing between frames, mutant hands, extra limbs, jitter, temporal stutter, flickering lights, random floating letters, watermark';
   }
+
+  return 'cartoon, illustration, 3d render, distorted vehicle proportions, melted rims, wrong steering placement, mangled dashboard controls, deformed character face, anatomical distortion, extra fingers, oversaturated, blurry, grainy, out of focus, low resolution, watermark, signature';
 }
